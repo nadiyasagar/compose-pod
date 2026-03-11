@@ -1,6 +1,7 @@
 package com.brine.composepod.compose
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
@@ -22,6 +23,13 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun <T> watchProvider(provider: ProviderBase<out StateFlow<T>>): State<T> {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     val flow = container.read(provider)
     return flow.collectAsState()
 }
@@ -34,6 +42,13 @@ fun <Notifier : StateNotifier<S>, S> watchProvider(
     provider: StateNotifierProvider<Notifier, S>
 ): State<S> {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     val notifier = container.read(provider)
     return notifier.stateFlow.collectAsState()
 }
@@ -45,6 +60,13 @@ fun <Notifier : StateNotifier<S>, S> watchProvider(
 @Composable
 fun <T, R> watchProvider(selectorObj: ProviderSelector<T, R>): State<R> {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, selectorObj.provider) {
+        val node = container.getNode(selectorObj.provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     val flow = container.read(selectorObj.provider)
     
     // We remember the mapped flow to avoid recreating it on every recomposition
@@ -69,6 +91,13 @@ fun <Notifier : StateNotifier<S>, S, R> watchProvider(
     selectorObj: NotifierProviderSelector<Notifier, S, R>
 ): State<R> {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, selectorObj.provider) {
+        val node = container.getNode(selectorObj.provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     val notifier = container.read(selectorObj.provider)
     
     val mappedFlow = remember(notifier.stateFlow, selectorObj.selector) {
@@ -83,11 +112,19 @@ fun <Notifier : StateNotifier<S>, S, R> watchProvider(
 }
 
 /**
- * Overload for plain [Provider] which doesn't alter state.
+ * Overload for plain [ProviderBase] which doesn't alter state.
  */
+@JvmName("watchProviderPlain")
 @Composable
-fun <T> watchProvider(provider: Provider<T>): State<T> {
+fun <T> watchProvider(provider: ProviderBase<T>): State<T> {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     return rememberUpdatedState(container.read(provider))
 }
 
@@ -98,6 +135,13 @@ fun <T> watchProvider(provider: Provider<T>): State<T> {
 @Composable
 fun <T> rememberProvider(provider: ProviderBase<T>): T {
     val container = LocalProviderContainer.current
+    
+    DisposableEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+        onDispose { node.removeListener() }
+    }
+    
     return remember(container, provider) {
         container.read(provider)
     }

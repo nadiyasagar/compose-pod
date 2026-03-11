@@ -1,15 +1,18 @@
 package com.example.composepod.demo.viewmodel
 
+import androidx.lifecycle.viewModelScope
 import com.brine.composepod.mvi.MVIViewModel
 import com.brine.composepod.mvi.StateNotifierProvider
 import com.brine.composepod.mvi.UiIntent
 import com.brine.composepod.mvi.UiState
 import com.brine.composepod.mvi.stateNotifierProvider
+import com.example.composepod.demo.domain.repository.NoteRepository
 import com.example.composepod.demo.models.Note
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 enum class ScreenRoute {
-    List, Add
+    List, Add, Advanced
 }
 
 data class NotesState(
@@ -25,36 +28,49 @@ sealed class NotesIntent : UiIntent {
     object NavigateToAdd : NotesIntent()
     data class NavigateToEdit(val id: String) : NotesIntent()
     object NavigateToList : NotesIntent()
+    object NavigateToAdvanced : NotesIntent()
 }
 
-class NotesViewModel : MVIViewModel<NotesState, NotesIntent>(
+class NotesViewModel(
+    private val repository: NoteRepository
+) : MVIViewModel<NotesState, NotesIntent>(
     initialState = NotesState()
 ) {
+
+    init {
+        viewModelScope.launch {
+            repository.getAllNotes().collect { notes ->
+                state = state.copy(notes = notes)
+            }
+        }
+    }
+
     override fun processIntent(intent: NotesIntent) {
         when (intent) {
             is NotesIntent.AddNote -> {
-                val newNote = Note(
-                    id = UUID.randomUUID().toString(),
-                    title = intent.title,
-                    content = intent.content
-                )
-                state = state.copy(
-                    notes = state.notes + newNote,
-                    currentRoute = ScreenRoute.List, // Auto-navigate back
-                    editingNoteId = null
-                )
+                viewModelScope.launch {
+                    val newNote = Note(
+                        id = UUID.randomUUID().toString(),
+                        title = intent.title,
+                        content = intent.content
+                    )
+                    repository.insertNote(newNote)
+                    state = state.copy(currentRoute = ScreenRoute.List, editingNoteId = null)
+                }
             }
             is NotesIntent.UpdateNote -> {
-                state = state.copy(
-                    notes = state.notes.map { if (it.id == intent.id) it.copy(title = intent.title, content = intent.content) else it },
-                    currentRoute = ScreenRoute.List,
-                    editingNoteId = null
-                )
+                viewModelScope.launch {
+                    val note = repository.getNoteById(intent.id)
+                    if (note != null) {
+                        repository.updateNote(note.copy(title = intent.title, content = intent.content))
+                    }
+                    state = state.copy(currentRoute = ScreenRoute.List, editingNoteId = null)
+                }
             }
             is NotesIntent.DeleteNote -> {
-                state = state.copy(
-                    notes = state.notes.filter { it.id != intent.id }
-                )
+                viewModelScope.launch {
+                    repository.deleteNote(intent.id)
+                }
             }
             NotesIntent.NavigateToAdd -> {
                 state = state.copy(currentRoute = ScreenRoute.Add, editingNoteId = null)
@@ -65,11 +81,9 @@ class NotesViewModel : MVIViewModel<NotesState, NotesIntent>(
             NotesIntent.NavigateToList -> {
                 state = state.copy(currentRoute = ScreenRoute.List, editingNoteId = null)
             }
+            NotesIntent.NavigateToAdvanced -> {
+                state = state.copy(currentRoute = ScreenRoute.Advanced, editingNoteId = null)
+            }
         }
     }
 }
-
-val notesProvider: StateNotifierProvider<NotesViewModel, NotesState> =
-    stateNotifierProvider {
-        NotesViewModel()
-    }

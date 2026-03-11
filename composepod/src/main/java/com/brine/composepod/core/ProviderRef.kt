@@ -16,11 +16,21 @@ interface ProviderRef {
      * It is cancelled when the provider is disposed.
      */
     val coroutineScope: CoroutineScope
-    
     /**
-     * Reads the current value of another provider.
+     * Reads the current value of another provider WITHOUT listening to its changes.
      */
     fun <T> read(provider: ProviderBase<T>): T
+    
+    /**
+     * Watches another provider's value. If the watched provider updates,
+     * this provider will be invalidated and rebuilt.
+     */
+    fun <T> watch(provider: ProviderBase<T>): T
+    
+    /**
+     * Forcefully invalidates a provider from the container.
+     */
+    fun invalidate(provider: ProviderBase<*>)
     
     /**
      * Reads a specific property from a provider's state using a selector.

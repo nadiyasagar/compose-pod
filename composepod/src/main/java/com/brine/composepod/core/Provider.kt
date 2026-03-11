@@ -9,6 +9,8 @@ class Provider<T>(
     private val createFn: (ProviderRef) -> T
 ) : ProviderBase<T>(name) {
     override fun create(ref: ProviderRef): T = createFn(ref)
+    
+    companion object
 }
 
 /**
