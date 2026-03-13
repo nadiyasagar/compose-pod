@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.compose)
+    alias(composepodLibs.plugins.android.library)
+    alias(composepodLibs.plugins.kotlin.compose)
     id("maven-publish")
 }
 
@@ -43,17 +43,17 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
+    implementation(composepodLibs.androidx.core.ktx)
+    implementation(composepodLibs.androidx.appcompat)
+    implementation(composepodLibs.material)
     
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
+    implementation(composepodLibs.androidx.lifecycle.runtime.ktx)
+    implementation(platform(composepodLibs.androidx.compose.bom))
+    implementation(composepodLibs.androidx.compose.ui)
     
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    testImplementation(composepodLibs.junit)
+    androidTestImplementation(composepodLibs.androidx.junit)
+    androidTestImplementation(composepodLibs.androidx.espresso.core)
 }
 
 publishing {
@@ -64,7 +64,7 @@ publishing {
             }
             groupId = "com.github.nadiyasagar" // User needs to change this
             artifactId = "composepod"
-            version = "1.0.0" // User needs to manage versions via GitHub releases too
+            version = "1.0.3" // User needs to manage versions via GitHub releases too
         }
     }
 }

@@ -1,7 +1,7 @@
 <h1 align="center">ComposePod 🚀</h1>
 
 <p align="center">
-  <strong>A Production-Grade, Clean Architecture State Management Library for Jetpack Compose</strong>
+  <strong>A Production-Grade State Management Library for Jetpack Compose</strong>
 </p>
 
 <p align="center">
@@ -10,45 +10,44 @@
   </a>
 </p>
 
-<hr>
+---
 
-**ComposePod** is a modern state management library crafted specifically for **Jetpack Compose**. Inspired by Flutter's Riverpod, it brings powerful Dependency Injection, MVI (Model-View-Intent) architecture, and Coroutine-based robust state handling securely into your Compose applications.
+**ComposePod** is a modern state management library inspired by Flutter's Riverpod. It combines **MVI architecture**, **Dependency Injection**, and **reactive state handling** into a simple, test-friendly solution for Jetpack Compose.
 
-## ✨ Features
+---
 
-- **Built for Jetpack Compose:** Seamlessly integrates with the Compose lifecycle using robust `ProviderScope` and intuitive composables.
-- **MVI Architecture Out of the Box:** Enforces a clean separation between UI components and business logic using explicit States and Intents.
-- **Micro-Recompositions `select()`:** Watch only specific parts of your state, eliminating unnecessary UI recompositions automatically!
-- **Asynchronous State Handling:** First-class support for loading, data, and error states using built-in `AsyncState` models.
-- **Clean Dependency Injection:** Create globally accessible, yet locally scoped `Providers` without heavy DI frameworks like Dagger or Hilt.
-- **Test-Friendly:** Business logic remains purely Kotlin (`MVIViewModel`), making unit testing effortless.
+## ✨ Features Overview
+
+| Feature | What It Does | When to Use |
+|---------|-------------|-------------|
+| **🎯 MVI Architecture** | Enforces clean State/Intent/ViewModel separation | Business logic & UI state management |
+| **📡 StateNotifierProvider** | Creates observable ViewModels | Main state container for screens |
+| **⚡ FutureProvider** | Handles async operations with loading/error states | API calls, database queries |
+| **🧬 Family Modifier** | Creates parameterized providers (cached per argument) | Dynamic data (user profiles by ID) |
+| **🗑️ AutoDispose** | Auto-destroys providers when not in use | Screen-scoped temporary data |
+| **🔍 Select** | Watch only specific state fields | Micro-recompositions (performance) |
+| **🔧 Override** | Replace providers for testing/mocking | Unit tests, preview data |
+| **👁️ ProviderObserver** | Lifecycle callbacks (create/update/dispose) | Analytics, debugging, logging |
 
 ---
 
 ## 📦 Installation
 
-ComposePod is hosted on **JitPack**.
-
-### 1. Add JitPack repository
-In your root `settings.gradle.kts` (or `build.gradle`), include the JitPack repository:
-
+### 1. Add JitPack Repository
 ```kotlin
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") } // <-- Add this
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
 
-### 2. Add the dependency
-In your module's `build.gradle.kts` (e.g., `app/build.gradle.kts`):
-
+### 2. Add Dependency
 ```kotlin
 dependencies {
-    implementation("com.github.nadiyasagar:compose-pod:1.0.1")
+    implementation("com.github.nadiyasagar:compose-pod:1.0.3")
 }
 ```
 
@@ -56,22 +55,16 @@ dependencies {
 
 ## 🛠️ Core Concepts
 
-### 1. The `ProviderScope`
-For ComposePod to manage your providers, you must wrap your root compose tree in a `ProviderScope`.
-
+### 1. Wrap Your App with `ProviderScope`
 ```kotlin
 setContent {
-    ComposePodTheme {
-        ProviderScope {
-            NotesAppScreen()
-        }
+    ProviderScope {
+        YourApp()
     }
 }
 ```
 
-### 2. Defining States and Intents
-Follow the strict **MVI (Model-View-Intent)** guidelines by defining your State and Intents:
-
+### 2. Define State & Intents (MVI)
 ```kotlin
 data class NotesState(
     val notes: List<Note> = emptyList(),
@@ -79,14 +72,12 @@ data class NotesState(
 ) : UiState
 
 sealed class NotesIntent : UiIntent {
-    data class AddNote(val title: String, val content: String) : NotesIntent()
-    data class DeleteNote(val id: String) : NotesIntent()
+    data class AddNote(val title: String) : NotesIntent()
+    object LoadNotes : NotesIntent()
 }
 ```
 
-### 3. The `MVIViewModel`
-Extend your business logic processor from `MVIViewModel`:
-
+### 3. Create ViewModel
 ```kotlin
 class NotesViewModel : MVIViewModel<NotesState, NotesIntent>(
     initialState = NotesState()
@@ -94,24 +85,17 @@ class NotesViewModel : MVIViewModel<NotesState, NotesIntent>(
     override fun processIntent(intent: NotesIntent) {
         when (intent) {
             is NotesIntent.AddNote -> {
-                // Update State seamlessly!
                 state = state.copy(
-                    notes = state.notes + Note(UUID.randomUUID().toString(), intent.title, intent.content)
+                    notes = state.notes + Note(intent.title)
                 )
             }
-            is NotesIntent.DeleteNote -> {
-                state = state.copy(
-                    notes = state.notes.filter { it.id != intent.id }
-                )
-            }
+            // ...
         }
     }
 }
 ```
 
-### 4. Creating a Provider
-Expose your ViewModel globally through a powerful `StateNotifierProvider`:
-
+### 4. Create Provider
 ```kotlin
 val notesProvider = stateNotifierProvider {
     NotesViewModel()
@@ -120,58 +104,120 @@ val notesProvider = stateNotifierProvider {
 
 ---
 
-## 🚀 Usage in Compose
+## 🚀 Usage Guide
 
-ComposePod offers two primary ways to interact with your providers inside composables:
-
-### Reading State (`watchProvider`)
-To reactively rebuild your UI when the state changes:
-
+### Watch State (Triggers Recomposition)
 ```kotlin
 @Composable
 fun NotesScreen() {
-    // ❌ Bad: Watches the ENTIRE state. Any change triggers recomposition.
-    // val state by watchProvider(notesProvider)
+    // Watch entire state
+    val state by watchProvider(notesProvider)
     
-    // ✅ Good: Micro-Recomposition! Only triggers when `notes` list itself changes. 
+    // Watch only specific field (better performance!)
     val notes by watchProvider(notesProvider.select { it.notes })
-
-    LazyColumn {
-        items(notes) { note ->
-            Text(note.title)
-        }
-    }
 }
 ```
 
-### Dispatching Actions (`rememberProvider`)
-To dispatch intents *without* triggering recompositions when the state changes:
-
+### Dispatch Actions (No Recomposition)
 ```kotlin
 @Composable
-fun AddNoteButton() {
-    // Gets the ViewModel instance WITHOUT listening to state changes
+fun AddButton() {
     val viewModel = rememberProvider(notesProvider)
-
-    Button(onClick = { viewModel.processIntent(NotesIntent.AddNote("Hello", "World")) }) {
-        Text("Save Note")
+    
+    Button(onClick = { 
+        viewModel.processIntent(NotesIntent.AddNote("Hello"))
+    }) {
+        Text("Add")
     }
 }
 ```
 
 ---
 
-## 🔥 Why ComposePod?
+## 🔥 Advanced Features
 
-While Google recommends `ViewModel` and `StateFlow`, things get messy in large apps:
-1. **Passing ViewModels down the tree** becomes painful. ComposePod's global `val myProvider` solves this cleanly without Hilt.
-2. **Recomposition bloat**: Native `collectAsState()` rebuilds the entire screen if one tiny boolean in your state class flips. Using ComposePod's `.select { }` fixes this elegantly!
-3. **MVI strictness**: Easily trace bugs by centralizing every state modification inside your `processIntent` function.
+### FutureProvider (Async Operations)
+```kotlin
+val userProvider = FutureProvider.family<String, User> { ref, userId ->
+    api.getUser(userId) // Suspend function
+}
+
+@Composable
+fun UserProfile(userId: String) {
+    val userState by watchProvider(userProvider(userId))
+    
+    when (userState) {
+        is AsyncState.Loading -> CircularProgressIndicator()
+        is AsyncState.Success -> Text(userState.data.name)
+        is AsyncState.Error -> Text("Error: ${userState.throwable.message}")
+    }
+}
+```
+
+### AutoDispose (Screen-Scoped)
+```kotlin
+val counterProvider = stateNotifierProvider {
+    CounterViewModel()
+}.autoDispose() // Destroyed when screen closes
+```
+
+### Override Providers (Testing)
+```kotlin
+ProviderScope(
+    overrides = listOf(
+        apiProvider.overrideWith { FakeApi() },
+        userProvider.overrideWith { mockUser }
+    )
+) {
+    // All overridden providers used here
+}
+```
+
+### ProviderObserver (Lifecycle)
+```kotlin
+class LoggingObserver : ProviderObserver {
+    override fun <T> didAddProvider(provider: ProviderBase<T>, value: T, container: ProviderContainer) {
+        Log.d("Pod", "Created: ${provider.name}")
+    }
+    
+    override fun <T> didDisposeProvider(provider: ProviderBase<T>, container: ProviderContainer) {
+        Log.d("Pod", "Destroyed: ${provider.name}")
+    }
+}
+
+ProviderScope(observers = listOf(LoggingObserver())) {
+    // App content
+}
+```
+
+---
+
+## 📊 Provider Types Comparison
+
+| Provider | Use Case | Auto-Handles |
+|----------|----------|--------------|
+| `provider { }` | Simple values/config | — |
+| `stateNotifierProvider { }` | MVI ViewModels | State flow, recomposition |
+| `FutureProvider { }` | Async operations | Loading, Success, Error states |
+| `FutureProvider.family { }` | Parameterized async | Caching per argument |
+
+---
+
+## 💡 Why ComposePod?
+
+| Problem | ComposePod Solution |
+|---------|---------------------|
+| ViewModel passing nightmare | Global providers accessible anywhere |
+| Unnecessary recompositions | `.select { }` for micro-recompositions |
+| Boilerplate DI setup | No Dagger/Hilt needed |
+| Memory leaks | `.autoDispose()` auto-cleanup |
+| Async state mess | `AsyncState<T>` handles loading/error |
+| Hard to test | `overrideWith()` for mocking |
 
 ---
 
 ## 🤝 Contributing
-Contributions, issues, and feature requests are welcome!
+Contributions welcome!
 
 ## 📜 License
 Distributed under the MIT License.

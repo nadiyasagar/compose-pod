@@ -21,6 +21,11 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
     }
+    versionCatalogs {
+        create("composepodLibs") {
+            from(files("composepod/gradle/libs.versions.toml"))
+        }
+    }
 }
 
 rootProject.name = "ComposePod"

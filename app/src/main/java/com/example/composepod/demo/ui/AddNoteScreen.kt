@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import com.brine.composepod.compose.rememberProvider
 import com.brine.composepod.compose.watchProvider
 import com.example.composepod.demo.di.notesProvider
@@ -57,8 +58,13 @@ fun AddNoteScreen() {
         }
     }
 
+    // Handle system back button
+    BackHandler {
+        viewModel.processIntent(NotesIntent.NavigateToList)
+    }
+
     Scaffold(
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(if (editingNote != null) "Edit Note" else "Add New Note", color = Color.White, fontWeight = FontWeight.Bold) },
