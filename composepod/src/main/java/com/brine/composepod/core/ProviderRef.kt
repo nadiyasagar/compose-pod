@@ -16,6 +16,13 @@ interface ProviderRef {
      * It is cancelled when the provider is disposed.
      */
     val coroutineScope: CoroutineScope
+
+    /**
+     * The current value of this provider, if it has already been initialized.
+     * Useful for reusing resources (like StateFlows) during a refresh.
+     */
+    val currentValue: Any?
+
     /**
      * Reads the current value of another provider WITHOUT listening to its changes.
      */
@@ -41,9 +48,27 @@ interface ProviderRef {
      * Reads a specific property from a StateNotifierProvider's state using a selector.
      */
     fun <Notifier : StateNotifier<S>, S, R> select(provider: StateNotifierProvider<Notifier, S>, selector: (S) -> R): R
-    
+
+    /**
+     * Listens to another provider's value changes without rebuilding.
+     * The listener will be called with (previousValue, newValue).
+     */
+    fun <T> listen(provider: ProviderBase<T>, listener: (T?, T) -> Unit)
+
     /**
      * Registers a callback to be called when this provider is disposed.
      */
     fun onDispose(callback: () -> Unit)
+
+    /**
+     * Registers a callback to be called when the last listener of an auto-dispose provider is removed.
+     * The provider will be disposed after this if no new listeners are added.
+     */
+    fun onCancel(callback: () -> Unit)
+
+    /**
+     * Registers a callback to be called when a new listener is added to an auto-dispose provider
+     * that was previously canceled but not yet disposed.
+     */
+    fun onResume(callback: () -> Unit)
 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.mutableStateOf
 import com.brine.composepod.core.NotifierProviderSelector
 import com.brine.composepod.core.Provider
 import com.brine.composepod.core.ProviderBase
@@ -22,16 +23,31 @@ import kotlinx.coroutines.flow.map
  */
 @Composable
 fun <T> watchProvider(provider: ProviderBase<out StateFlow<T>>): State<T> {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
+    val currentFlowState = remember(container, provider) {
+        mutableStateOf(container.read(provider))
+    }
+
     DisposableEffect(container, provider) {
         val node = container.getNode(provider)
         node.addListener()
-        onDispose { node.removeListener() }
+        
+        val listener: (Any?) -> Unit = { newValue ->
+            if (newValue is StateFlow<*>) {
+                @Suppress("UNCHECKED_CAST")
+                currentFlowState.value = newValue as StateFlow<T>
+            }
+        }
+        node.addOnValueChangeListener(listener)
+        
+        onDispose { 
+            node.removeOnValueChangeListener(listener)
+            node.removeListener() 
+        }
     }
-    
-    val flow = container.read(provider)
-    return flow.collectAsState()
+
+    return currentFlowState.value.collectAsState()
 }
 
 /**
@@ -41,16 +57,28 @@ fun <T> watchProvider(provider: ProviderBase<out StateFlow<T>>): State<T> {
 fun <Notifier : StateNotifier<S>, S> watchProvider(
     provider: StateNotifierProvider<Notifier, S>
 ): State<S> {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
+    val currentNotifierState = remember(container, provider) {
+        mutableStateOf(container.read(provider))
+    }
+
     DisposableEffect(container, provider) {
         val node = container.getNode(provider)
         node.addListener()
-        onDispose { node.removeListener() }
+        
+        val listener: (Notifier) -> Unit = { newValue ->
+            currentNotifierState.value = newValue
+        }
+        node.addOnValueChangeListener(listener)
+        
+        onDispose { 
+            node.removeOnValueChangeListener(listener)
+            node.removeListener() 
+        }
     }
-    
-    val notifier = container.read(provider)
-    return notifier.stateFlow.collectAsState()
+
+    return currentNotifierState.value.stateFlow.collectAsState()
 }
 
 /**
@@ -59,14 +87,14 @@ fun <Notifier : StateNotifier<S>, S> watchProvider(
  */
 @Composable
 fun <T, R> watchProvider(selectorObj: ProviderSelector<T, R>): State<R> {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
     DisposableEffect(container, selectorObj.provider) {
         val node = container.getNode(selectorObj.provider)
         node.addListener()
         onDispose { node.removeListener() }
     }
-    
+
     val flow = container.read(selectorObj.provider)
     
     // We remember the mapped flow to avoid recreating it on every recomposition
@@ -90,14 +118,14 @@ fun <T, R> watchProvider(selectorObj: ProviderSelector<T, R>): State<R> {
 fun <Notifier : StateNotifier<S>, S, R> watchProvider(
     selectorObj: NotifierProviderSelector<Notifier, S, R>
 ): State<R> {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
     DisposableEffect(container, selectorObj.provider) {
         val node = container.getNode(selectorObj.provider)
         node.addListener()
         onDispose { node.removeListener() }
     }
-    
+
     val notifier = container.read(selectorObj.provider)
     
     val mappedFlow = remember(notifier.stateFlow, selectorObj.selector) {
@@ -117,15 +145,28 @@ fun <Notifier : StateNotifier<S>, S, R> watchProvider(
 @JvmName("watchProviderPlain")
 @Composable
 fun <T> watchProvider(provider: ProviderBase<T>): State<T> {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
+    val state = remember(container, provider) {
+        mutableStateOf(container.read(provider))
+    }
+
     DisposableEffect(container, provider) {
         val node = container.getNode(provider)
         node.addListener()
-        onDispose { node.removeListener() }
+        
+        val listener: (T) -> Unit = { newValue ->
+            state.value = newValue
+        }
+        node.addOnValueChangeListener(listener)
+        
+        onDispose { 
+            node.removeOnValueChangeListener(listener)
+            node.removeListener() 
+        }
     }
-    
-    return rememberUpdatedState(container.read(provider))
+
+    return state
 }
 
 /**
@@ -134,14 +175,14 @@ fun <T> watchProvider(provider: ProviderBase<T>): State<T> {
  */
 @Composable
 fun <T> rememberProvider(provider: ProviderBase<T>): T {
-    val container = LocalProviderContainer.current
-    
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+
     DisposableEffect(container, provider) {
         val node = container.getNode(provider)
         node.addListener()
         onDispose { node.removeListener() }
     }
-    
+
     return remember(container, provider) {
         container.read(provider)
     }
@@ -153,6 +194,81 @@ fun <T> rememberProvider(provider: ProviderBase<T>): T {
  */
 @Composable
 fun <T> readProvider(provider: ProviderBase<T>): T {
-    val container = LocalProviderContainer.current
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
     return container.read(provider)
+}
+
+/**
+ * Listens to a provider's changes and invokes a callback.
+ * Does not trigger recomposition.
+ */
+@Composable
+fun <T> listenProvider(
+    provider: ProviderBase<T>,
+    listener: (T?, T) -> Unit
+) {
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+    val currentListenerState = rememberUpdatedState(listener)
+
+    DisposableEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+
+        var previousValue: T? = null
+        val valueListener: (T) -> Unit = { newValue ->
+            currentListenerState.value(previousValue, newValue)
+            previousValue = newValue
+        }
+
+        node.addOnValueChangeListener(valueListener)
+        onDispose {
+            node.removeOnValueChangeListener(valueListener)
+            node.removeListener()
+        }
+    }
+}
+
+/**
+ * Listens to a [StateNotifierProvider]'s state changes.
+ * Does not trigger recomposition.
+ */
+@Composable
+fun <Notifier : StateNotifier<S>, S> listenProvider(
+    provider: StateNotifierProvider<Notifier, S>,
+    listener: (S?, S) -> Unit
+) {
+    val container = LocalProviderContainer.current ?: error("No ProviderContainer provided. Wrap your component in ProviderScope.")
+    val currentListenerState = rememberUpdatedState(listener)
+
+    androidx.compose.runtime.LaunchedEffect(container, provider) {
+        val node = container.getNode(provider)
+        node.addListener()
+        try {
+            val notifier = container.read(provider)
+            var previousValue: S? = null
+            var firstEmission = true
+            
+            notifier.stateFlow.collect { newValue ->
+                if (firstEmission) {
+                    previousValue = newValue
+                    firstEmission = false
+                } else {
+                    currentListenerState.value(previousValue, newValue)
+                    previousValue = newValue
+                }
+            }
+        } finally {
+            node.removeListener()
+        }
+    }
+}
+
+/**
+ * Fluent extension to listen to a [StateNotifierProvider].
+ */
+@Composable
+fun <Notifier : StateNotifier<S>, S> StateNotifierProvider<Notifier, S>.listen(
+    listener: (S?, S) -> Unit
+) {
+    listenProvider(this, listener)
 }

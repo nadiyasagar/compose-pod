@@ -11,11 +11,12 @@ import kotlinx.coroutines.launch
  */
 abstract class MVIViewModel<State : UiState, Intent : UiIntent>(
     initialState: State,
-    private val reducer: Reducer<State, Intent>? = null
+    private val reducer: Reducer<State, Intent>? = null,
+    scope: CoroutineScope? = null
 ) : StateNotifier<State>(initialState) {
 
-    // Internal scope for MVI operations out of ComposePod context
-    protected val viewModelScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    // Tied to provider lifecycle if scope is provided, otherwise creates its own
+    protected val viewModelScope = scope ?: CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /**
      * Process a UI intent.

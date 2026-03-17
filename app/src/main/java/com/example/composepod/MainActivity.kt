@@ -14,7 +14,6 @@ import com.brine.composepod.core.ProviderContainer
 import com.brine.composepod.core.ProviderObserver
 import com.brine.composepod.core.overrideWith
 import com.example.composepod.demo.ui.NotesAppScreen
-import com.example.composepod.demo.ui.appVersionProvider
 import com.example.composepod.demo.di.applicationContextProvider
 import com.example.composepod.ui.theme.ComposePodTheme
 import android.util.Log
@@ -42,7 +41,6 @@ class MainActivity : ComponentActivity() {
                 ProviderScope(
                     observers = listOf(LoggingObserver()),
                     overrides = listOf(
-                        appVersionProvider.overrideWith { "2.0.0-mocked" },
                         applicationContextProvider.overrideWith { applicationContext }
                     )
                 ) {
