@@ -16,18 +16,17 @@
 
 ---
 
-## ✨ Features Overview
-
 | Feature | What It Does | When to Use |
 |---------|-------------|-------------|
 | **🎯 MVI Architecture** | Enforces clean State/Intent/ViewModel separation | Business logic & UI state management |
 | **📡 StateNotifierProvider** | Creates observable ViewModels | Main state container for screens |
 | **⚡ FutureProvider** | Handles async operations with loading/error states | API calls, database queries |
-| **🧬 Family Modifier** | Creates parameterized providers (cached per argument) | Dynamic data (user profiles by ID) |
+| **🌊 StreamProvider** | Listens to reactive data streams | Firebase, WebSockets, real-time data |
+| **🧮 ComputedProvider** | Derives state from other providers | Calculations, filtered lists |
+| **🧬 Family Modifier** | Creates parameterized providers | Dynamic data (user profiles by ID) |
 | **🗑️ AutoDispose** | Auto-destroys providers when not in use | Screen-scoped temporary data |
 | **🔍 Select** | Watch only specific state fields | Micro-recompositions (performance) |
 | **🔧 Override** | Replace providers for testing/mocking | Unit tests, preview data |
-| **👁️ ProviderObserver** | Lifecycle callbacks (create/update/dispose) | Analytics, debugging, logging |
 
 ---
 
@@ -132,25 +131,56 @@ fun AddButton() {
 }
 ```
 
+### Side-Effects (Snackbars, Navigation)
+Use the fluent `.listen` API to handle side-effects without triggering recomposition.
+```kotlin
+@Composable
+fun NotesScreen() {
+    notesProvider.listen { previous, next ->
+        if (next.notes.size > (previous?.notes?.size ?: 0)) {
+            // Show snackbar or navigate
+        }
+    }
+}
+```
+
 ---
 
 ## 🔥 Advanced Features
 
-### FutureProvider (Async Operations)
+### FutureProvider & StreamProvider (Async)
+ComposePod handles async state elegantly with `AsyncState.when`.
+
 ```kotlin
 val userProvider = FutureProvider.family<String, User> { ref, userId ->
-    api.getUser(userId) // Suspend function
+    api.getUser(userId) 
+}
+
+val chatProvider = StreamProvider { ref ->
+    repository.observeMessages() // Returns Flow<List<Message>>
 }
 
 @Composable
 fun UserProfile(userId: String) {
     val userState by watchProvider(userProvider(userId))
     
-    when (userState) {
-        is AsyncState.Loading -> CircularProgressIndicator()
-        is AsyncState.Success -> Text(userState.data.name)
-        is AsyncState.Error -> Text("Error: ${userState.throwable.message}")
-    }
+    userState.`when`(
+        loading = { CircularProgressIndicator() },
+        success = { user -> Text("Hello, ${user.name}") },
+        error = { error -> Text("Failed: ${error.message}") }
+    )
+}
+```
+
+### ComputedProvider (Deriving State)
+Automatically re-computes when dependencies change.
+
+```kotlin
+val counterProvider = stateProvider { 0 }
+
+val doubledProvider = computedProvider { ref ->
+    val count = ref.watch(counterProvider)
+    count * 2
 }
 ```
 
@@ -173,15 +203,31 @@ ProviderScope(
 }
 ```
 
-### ProviderObserver (Lifecycle)
+### Lifecycle Hooks
+Manage external resources directly within your providers.
+
+```kotlin
+val socketProvider = provider { ref ->
+    val socket = SocketClient().connect()
+    
+    ref.onDispose { socket.disconnect() }
+    ref.onCancel { socket.pause() }
+    ref.onResume { socket.resume() }
+    
+    socket
+}
+```
+
+### ProviderObserver (Lifecycle Logging)
 ```kotlin
 class LoggingObserver : ProviderObserver {
-    override fun <T> didAddProvider(provider: ProviderBase<T>, value: T, container: ProviderContainer) {
-        Log.d("Pod", "Created: ${provider.name}")
-    }
-    
-    override fun <T> didDisposeProvider(provider: ProviderBase<T>, container: ProviderContainer) {
-        Log.d("Pod", "Destroyed: ${provider.name}")
+    override fun <T> didUpdateProvider(
+        provider: ProviderBase<T>, 
+        previousValue: T?, 
+        newValue: T, 
+        container: ProviderContainer
+    ) {
+        Log.d("Pod", "${provider.name} updated: $newValue")
     }
 }
 
@@ -196,10 +242,12 @@ ProviderScope(observers = listOf(LoggingObserver())) {
 
 | Provider | Use Case | Auto-Handles |
 |----------|----------|--------------|
-| `provider { }` | Simple values/config | — |
-| `stateNotifierProvider { }` | MVI ViewModels | State flow, recomposition |
-| `FutureProvider { }` | Async operations | Loading, Success, Error states |
-| `FutureProvider.family { }` | Parameterized async | Caching per argument |
+| `provider { }` | Simple values/config | Dependency Injection |
+| `stateNotifier { }` | MVI ViewModels | StateFlow & UI Listeners |
+| `FutureProvider { }` | Single async tasks | Loading/Success/Error |
+| `StreamProvider { }` | Reactive real-time data | Flow collection, cleanup |
+| `computedProvider { }` | Derived/filtered state | Automatic re-computation |
+| `.family` | Parameterized state | Caching per argument |
 
 ---
 
@@ -207,12 +255,13 @@ ProviderScope(observers = listOf(LoggingObserver())) {
 
 | Problem | ComposePod Solution |
 |---------|---------------------|
-| ViewModel passing nightmare | Global providers accessible anywhere |
-| Unnecessary recompositions | `.select { }` for micro-recompositions |
-| Boilerplate DI setup | No Dagger/Hilt needed |
-| Memory leaks | `.autoDispose()` auto-cleanup |
-| Async state mess | `AsyncState<T>` handles loading/error |
-| Hard to test | `overrideWith()` for mocking |
+| Boilerplate DI setup | No Dagger/Hilt needed (Global Providers) |
+| ViewModel passing | Accessible anywhere via `watch`/`remember` |
+| UI Performance | `.select { }` for micro-recompositions |
+| Memory leaks | `.autoDispose()` auto-cleanup & lifecycle hooks |
+| State Threading | **Production-Ready**: Thread-safe state updates |
+| App Crashes | **Circular dependency protection** built-in |
+| Hard to test | `overrideWith()` for instant mocking |
 
 ---
 
