@@ -47,7 +47,7 @@ dependencyResolutionManagement {
 ```kotlin
 dependencies {
     // Explicitly specify the :composepod module
-    implementation("com.github.nadiyasagar.compose-pod:composepod:1.0.3")
+    implementation("com.github.nadiyasagar:compose-pod:1.0.3")
 }
 ```
 
